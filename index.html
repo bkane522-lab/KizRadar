@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KizRadar">
+<link rel="manifest" href="/manifest.json">
+<title>KizRadar — Never Miss The Night</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root {
+  --bg:       #0d0820;
+  --bg2:      #160d30;
+  --bg3:      #1e1040;
+  --gold:     #ffd166;
+  --gold2:    #f4a329;
+  --purple:   #7c3aed;
+  --accent:   #c084fc;
+  --warm:     #ff9a5c;
+  --teal:     #06d6a0;
+  --red:      #ff4d6d;
+  --white:    #f5eeff;
+  --gray:     #8b7aaa;
+  --card:     rgba(30,16,64,0.75);
+  --border:   rgba(255,209,102,0.15);
+  --border2:  rgba(192,132,252,0.25);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body {
+  background: var(--bg); color: var(--white);
+  font-family:'Space Grotesk',sans-serif;
+  height:100vh; overflow:hidden;
+}
+.serif { font-family:'Playfair Display',serif; }
+
+/* ═══ SPLASH ═══ */
+#splash {
+  position:fixed; inset:0; z-index:200;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(124,58,237,.25), var(--bg) 70%);
+  padding:2rem; text-align:center; gap:1.25rem;
+}
+.splash-logo { animation: float 5s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);} }
+.splash-claim { font-size:clamp(1rem,4vw,1.3rem); color:var(--white); line-height:1.5; max-width:300px; }
+.splash-claim em { color:var(--warm); font-style:normal; }
+.splash-sub { font-size:.8rem; color:var(--gray); letter-spacing:.05em; }
+.enter-btn {
+  margin-top:.5rem; padding:1rem 2.5rem; border:none; border-radius:50px;
+  background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a0030;
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1rem;
+  cursor:pointer; box-shadow:0 0 40px rgba(255,209,102,.3); transition:all .3s;
+}
+.enter-btn:hover { transform:scale(1.04); }
+
+/* ═══ MAP ═══ */
+#map { position:fixed; inset:0; z-index:1; background:var(--bg); }
+.leaflet-tile-pane { filter: invert(1) hue-rotate(200deg) saturate(0.8) brightness(0.9) contrast(1.1); }
+.leaflet-control-attribution { background:rgba(13,8,32,.7) !important; color:var(--gray) !important; font-size:.6rem !important; }
+.leaflet-control-attribution a { color:var(--accent) !important; }
+.leaflet-control-zoom { display:none; }
+
+/* Custom marker */
+.kiz-marker {
+  width:38px; height:38px; border-radius:50%;
+  background:linear-gradient(135deg,var(--gold2),var(--gold));
+  display:flex; align-items:center; justify-content:center;
+  font-size:1.1rem; box-shadow:0 0 20px rgba(255,209,102,.6), 0 2px 8px rgba(0,0,0,.4);
+  border:2px solid rgba(255,255,255,.3);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{ box-shadow:0 0 20px rgba(255,209,102,.6), 0 2px 8px rgba(0,0,0,.4);} 50%{ box-shadow:0 0 32px rgba(255,209,102,.85), 0 2px 8px rgba(0,0,0,.4);} }
+
+/* ═══ TOP BAR ═══ */
+.top-bar {
+  position:fixed; top:0; left:0; right:0; z-index:50;
+  padding:1rem 1.1rem .75rem;
+  background:linear-gradient(180deg, var(--bg) 40%, transparent);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.top-logo { font-family:'Playfair Display',serif; font-size:1.25rem; font-weight:900; }
+.top-logo .kiz{color:var(--gold);} .top-logo .radar{color:var(--accent);}
+.locate-btn {
+  width:40px; height:40px; border-radius:50%;
+  background:var(--card); border:1px solid var(--border);
+  color:var(--white); font-size:1.1rem; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(10px);
+}
+
+/* ═══ FILTER PILLS ═══ */
+.filter-row {
+  position:fixed; top:64px; left:0; right:0; z-index:50;
+  display:flex; gap:.5rem; padding:0 1.1rem; overflow-x:auto; scrollbar-width:none;
+}
+.filter-pill {
+  flex-shrink:0; padding:.5rem 1rem; border-radius:20px;
+  background:var(--card); border:1px solid var(--border);
+  color:var(--gray); font-size:.8rem; font-weight:600; cursor:pointer;
+  backdrop-filter:blur(10px); transition:all .2s; white-space:nowrap;
+}
+.filter-pill.active { background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a0030; border-color:transparent; }
+
+/* ═══ FAB add event ═══ */
+.fab-add {
+  position:fixed; bottom:100px; right:1.1rem; z-index:50;
+  width:56px; height:56px; border-radius:50%; border:none;
+  background:linear-gradient(135deg,var(--purple),var(--accent));
+  color:#fff; font-size:1.6rem; cursor:pointer;
+  box-shadow:0 6px 24px rgba(124,58,237,.5);
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ═══ BOTTOM SHEET (event detail) ═══ */
+.sheet-overlay {
+  position:fixed; inset:0; z-index:100; background:rgba(0,0,0,.5);
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+.sheet-overlay.open { opacity:1; pointer-events:all; }
+.sheet {
+  position:fixed; left:0; right:0; bottom:0; z-index:101;
+  background:linear-gradient(180deg,var(--bg2),var(--bg));
+  border-radius:24px 24px 0 0; border-top:1px solid var(--border2);
+  padding:1.5rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  transform:translateY(100%); transition:transform .35s cubic-bezier(.32,.72,0,1);
+  max-height:75vh; overflow-y:auto;
+}
+.sheet.open { transform:translateY(0); }
+.sheet-handle { width:40px; height:4px; border-radius:2px; background:var(--border2); margin:0 auto 1rem; }
+.sheet-close {
+  position:absolute; top:1.2rem; right:1.2rem; width:32px; height:32px;
+  border-radius:50%; background:var(--card); border:1px solid var(--border);
+  color:var(--white); font-size:1rem; cursor:pointer;
+}
+.sheet-style-tag {
+  display:inline-block; font-size:.68rem; text-transform:uppercase; letter-spacing:.08em;
+  padding:.3rem .7rem; border-radius:16px; background:rgba(124,58,237,.2);
+  color:var(--accent); border:1px solid rgba(124,58,237,.35); margin-bottom:.7rem;
+}
+.sheet-title { font-family:'Playfair Display',serif; font-size:1.35rem; font-weight:900; color:var(--gold); margin-bottom:.3rem; }
+.sheet-meta { display:flex; flex-direction:column; gap:.55rem; margin:1rem 0; }
+.sheet-meta-row { display:flex; align-items:center; gap:.6rem; font-size:.88rem; color:var(--white); }
+.sheet-meta-icon { font-size:1.1rem; width:24px; text-align:center; }
+.sheet-desc { font-size:.85rem; color:var(--gray); line-height:1.6; margin-bottom:1.2rem; }
+.going-row { display:flex; align-items:center; gap:.6rem; margin-bottom:1rem; }
+.going-count { font-size:.82rem; color:var(--gray); }
+.going-count strong { color:var(--gold); }
+.im-going-btn {
+  width:100%; padding:1rem; border:none; border-radius:16px;
+  background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a0030;
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.95rem; cursor:pointer;
+  transition:all .2s;
+}
+.im-going-btn.going { background:linear-gradient(135deg,var(--teal),#0fe0b0); }
+.im-going-btn:hover { transform:translateY(-1px); }
+
+/* ═══ ADD EVENT FORM SHEET ═══ */
+.form-lbl { font-size:.75rem; color:var(--gray); display:block; margin:.9rem 0 .35rem; }
+.form-lbl:first-of-type { margin-top:0; }
+.form-input, .form-select, .form-textarea {
+  width:100%; background:rgba(10,5,25,.6); border:1px solid var(--border);
+  border-radius:12px; padding:.75rem .9rem; color:var(--white);
+  font-family:'Space Grotesk',sans-serif; font-size:.88rem; outline:none;
+  transition:border-color .2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color:var(--accent); }
+.form-select option { background:var(--bg2); }
+.style-chips { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.4rem; }
+.style-chip-select {
+  padding:.5rem .9rem; border-radius:18px; font-size:.78rem; cursor:pointer;
+  background:var(--card); border:1px solid var(--border); color:var(--gray); transition:all .2s;
+}
+.style-chip-select.selected { background:rgba(255,209,102,.15); border-color:var(--gold); color:var(--gold); }
+.submit-event-btn {
+  width:100%; margin-top:1.3rem; padding:1rem; border:none; border-radius:16px;
+  background:linear-gradient(135deg,var(--purple),var(--accent)); color:#fff;
+  font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:.95rem; cursor:pointer;
+}
+
+/* ═══ BOTTOM NAV ═══ */
+.bottom-nav {
+  position:fixed; bottom:0; left:0; right:0; z-index:50;
+  display:flex; justify-content:space-around; align-items:center;
+  padding:.7rem 0 calc(.7rem + env(safe-area-inset-bottom));
+  background:rgba(13,8,32,.95); backdrop-filter:blur(20px);
+  border-top:1px solid var(--border);
+}
+.nav-i {
+  display:flex; flex-direction:column; align-items:center; gap:.18rem;
+  background:none; border:1px solid transparent; border-radius:12px;
+  padding:.35rem .9rem; color:var(--gray); font-size:.62rem;
+  font-family:'Space Grotesk',sans-serif; cursor:pointer;
+}
+.nav-i .ic { font-size:1.25rem; }
+.nav-i.active { color:var(--gold); background:rgba(255,209,102,.07); border-color:rgba(255,209,102,.15); }
+
+/* ═══ TOAST ═══ */
+.toast {
+  position:fixed; top:75px; left:50%; transform:translateX(-50%) translateY(-130px);
+  background:linear-gradient(135deg,var(--bg3),rgba(255,209,102,.1));
+  border:1px solid var(--gold); border-radius:20px; padding:.85rem 1.2rem;
+  z-index:9999; display:flex; align-items:center; gap:.6rem;
+  backdrop-filter:blur(20px); transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+  font-size:.85rem; max-width:88vw;
+}
+.toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SPLASH ═══════════════ -->
+<div id="splash">
+  <div class="splash-logo">
+    <svg width="260" height="140" viewBox="0 0 260 140" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f4a329"/><stop offset="100%" stop-color="#ffd166"/>
+        </linearGradient>
+        <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#c084fc"/>
+        </linearGradient>
+      </defs>
+      <circle cx="130" cy="55" r="42" fill="none" stroke="url(#g2)" stroke-width="1.2" opacity=".4"/>
+      <circle cx="130" cy="55" r="30" fill="none" stroke="url(#g1)" stroke-width="1" opacity=".3"/>
+      <circle cx="130" cy="55" r="5" fill="url(#g1)"/>
+      <circle cx="95" cy="35" r="3" fill="#ffd166" opacity=".8"/>
+      <circle cx="168" cy="30" r="2" fill="#c084fc" opacity=".8"/>
+      <circle cx="175" cy="70" r="2.5" fill="#ffd166" opacity=".7"/>
+      <text x="20" y="120" font-family="Georgia,serif" font-size="42" font-weight="900" fill="url(#g1)" textLength="105" lengthAdjust="spacingAndGlyphs">KIZ</text>
+      <text x="130" y="120" font-family="Arial,sans-serif" font-size="38" font-weight="900" fill="url(#g2)" textLength="115" lengthAdjust="spacingAndGlyphs">RADAR</text>
+    </svg>
+  </div>
+  <p class="splash-claim">Ne rate plus jamais<br><em>une soirée Kizomba</em></p>
+  <p class="splash-sub">📍 KIZOMBA · URBAN KIZ · SEMBA · TARRAXO</p>
+  <button class="enter-btn" onclick="enterApp()">🗺️ Ouvrir la carte</button>
+</div>
+
+<!-- ═══════════════ MAP ═══════════════ -->
+<div id="map"></div>
+
+<div class="top-bar">
+  <div class="top-logo"><span class="kiz">Kiz</span><span class="radar">Radar</span></div>
+  <button class="locate-btn" onclick="locateMe()">📍</button>
+</div>
+
+<div class="filter-row">
+  <div class="filter-pill active" data-f="all" onclick="setFilter('all',this)">Tous</div>
+  <div class="filter-pill" data-f="today" onclick="setFilter('today',this)">Ce soir</div>
+  <div class="filter-pill" data-f="week" onclick="setFilter('week',this)">Ce weekend</div>
+  <div class="filter-pill" data-f="Kizomba" onclick="setFilter('Kizomba',this)">🎵 Kizomba</div>
+  <div class="filter-pill" data-f="Urban Kiz" onclick="setFilter('Urban Kiz',this)">💃 Urban Kiz</div>
+  <div class="filter-pill" data-f="Semba" onclick="setFilter('Semba',this)">🔥 Semba</div>
+</div>
+
+<button class="fab-add" onclick="openAddForm()">+</button>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-i active"><span class="ic">🗺️</span>Carte</button>
+  <button class="nav-i" onclick="openListView()"><span class="ic">📋</span>Liste</button>
+  <button class="nav-i" onclick="openAddForm()"><span class="ic">➕</span>Ajouter</button>
+</div>
+
+<!-- ═══════════════ EVENT DETAIL SHEET ═══════════════ -->
+<div class="sheet-overlay" id="detail-overlay" onclick="closeSheet('detail')"></div>
+<div class="sheet" id="detail-sheet">
+  <button class="sheet-close" onclick="closeSheet('detail')">✕</button>
+  <div class="sheet-handle"></div>
+  <span class="sheet-style-tag" id="d-style">Kizomba</span>
+  <div class="sheet-title" id="d-title">Nom de la soirée</div>
+  <div class="sheet-meta">
+    <div class="sheet-meta-row"><span class="sheet-meta-icon">📍</span><span id="d-loc">Lieu</span></div>
+    <div class="sheet-meta-row"><span class="sheet-meta-icon">📅</span><span id="d-date">Date</span></div>
+    <div class="sheet-meta-row"><span class="sheet-meta-icon">🎧</span><span id="d-dj">DJ</span></div>
+    <div class="sheet-meta-row"><span class="sheet-meta-icon">💶</span><span id="d-price">Prix</span></div>
+  </div>
+  <div class="sheet-desc" id="d-desc"></div>
+  <div class="going-row">
+    <span class="going-count"><strong id="d-going-count">0</strong> personnes y vont</span>
+  </div>
+  <button class="im-going-btn" id="d-going-btn" onclick="toggleGoing()">🙋 J'y vais</button>
+</div>
+
+<!-- ═══════════════ ADD EVENT SHEET ═══════════════ -->
+<div class="sheet-overlay" id="add-overlay" onclick="closeSheet('add')"></div>
+<div class="sheet" id="add-sheet">
+  <button class="sheet-close" onclick="closeSheet('add')">✕</button>
+  <div class="sheet-handle"></div>
+  <div class="sheet-title" style="font-size:1.15rem">➕ Ajouter une soirée</div>
+
+  <label class="form-lbl">Nom de la soirée</label>
+  <input class="form-input" id="f-title" placeholder="Ex: Soirée Kizomba du Vendredi">
+
+  <label class="form-lbl">Ville / Adresse</label>
+  <input class="form-input" id="f-loc" placeholder="Ex: Paris, 12 rue de la Danse">
+
+  <label class="form-lbl">Date</label>
+  <input class="form-input" id="f-date" type="date">
+
+  <label class="form-lbl">DJ (optionnel)</label>
+  <input class="form-input" id="f-dj" placeholder="Ex: DJ Kizomba Galactic">
+
+  <label class="form-lbl">Prix (optionnel)</label>
+  <input class="form-input" id="f-price" placeholder="Ex: 10€ ou Gratuit">
+
+  <label class="form-lbl">Style principal</label>
+  <div class="style-chips" id="f-styles">
+    <div class="style-chip-select" data-s="Kizomba">🎵 Kizomba</div>
+    <div class="style-chip-select" data-s="Urban Kiz">💃 Urban Kiz</div>
+    <div class="style-chip-select" data-s="Semba">🔥 Semba</div>
+    <div class="style-chip-select" data-s="Tarraxo">🌊 Tarraxo</div>
+    <div class="style-chip-select" data-s="SBK">✨ SBK</div>
+  </div>
+
+  <label class="form-lbl">Description (optionnel)</label>
+  <textarea class="form-textarea" id="f-desc" rows="3" placeholder="Infos utiles..."></textarea>
+
+  <button class="submit-event-btn" onclick="submitEvent()">🚀 Publier la soirée</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✅</span><span id="toast-msg"></span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ════════════════════════════════════════════════
+// DEMO SEED DATA — à remplacer par vraies données communauté
+// ════════════════════════════════════════════════
+function todayISO(offset=0){
+  const d = new Date(); d.setDate(d.getDate()+offset);
+  return d.toISOString().split('T')[0];
+}
+
+let events = JSON.parse(localStorage.getItem('kizradar_events') || 'null') || [
+  { id:1, title:"Soirée Kizomba du Vendredi", loc:"Paris 11e", lat:48.857, lng:2.380, date:todayISO(0), dj:"DJ Madiss", price:"10€", style:"Kizomba", desc:"Ambiance chaleureuse, cours débutant 20h puis soirée libre.", going:12 },
+  { id:2, title:"Urban Kiz Night", loc:"Lyon Centre", lat:45.764, lng:4.835, date:todayISO(0), dj:"DJ Ash", price:"12€", style:"Urban Kiz", desc:"Le rendez-vous mensuel Urban Kiz de Lyon.", going:8 },
+  { id:3, title:"Semba Festif Weekend", loc:"Bruxelles", lat:50.850, lng:4.351, date:todayISO(2), dj:"DJ Znobia", price:"Gratuit", style:"Semba", desc:"Soirée 100% Semba avant le weekend.", going:21 },
+  { id:4, title:"SBK Saturday", loc:"Genève", lat:46.204, lng:6.143, date:todayISO(1), dj:"DJ Neyser", price:"15€", style:"SBK", desc:"Salsa Bachata Kizomba — 3 salles, 3 ambiances.", going:34 },
+  { id:5, title:"Tarraxo Sunset", loc:"Marseille", lat:43.296, lng:5.370, date:todayISO(3), dj:"—", price:"8€", style:"Tarraxo", desc:"Soirée intimiste en bord de mer.", going:6 },
+];
+
+function saveEvents(){ localStorage.setItem('kizradar_events', JSON.stringify(events)); }
+
+let goingIds = JSON.parse(localStorage.getItem('kizradar_going') || '[]');
+function saveGoing(){ localStorage.setItem('kizradar_going', JSON.stringify(goingIds)); }
+
+// ════════════════════════════════════════════════
+// MAP INIT
+// ════════════════════════════════════════════════
+let map, markers = [];
+let currentFilter = 'all';
+let activeEventId = null;
+let selectedStyle = null;
+
+function initMap(){
+  map = L.map('map', { zoomControl:false, attributionControl:true }).setView([46.6, 3.5], 5.2);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 18
+  }).addTo(map);
+  renderMarkers();
+}
+
+function customIcon(style){
+  const emojis = { Kizomba:'🎵', 'Urban Kiz':'💃', Semba:'🔥', Tarraxo:'🌊', SBK:'✨' };
+  return L.divIcon({
+    className:'',
+    html:`<div class="kiz-marker">${emojis[style]||'🎉'}</div>`,
+    iconSize:[38,38], iconAnchor:[19,19]
+  });
+}
+
+function passesFilter(ev){
+  if(currentFilter === 'all') return true;
+  if(currentFilter === 'today') return ev.date === todayISO(0);
+  if(currentFilter === 'week') {
+    const d = new Date(ev.date), now = new Date();
+    const diff = (d-now)/(1000*60*60*24);
+    return diff >= 0 && diff <= 7;
+  }
+  return ev.style === currentFilter;
+}
+
+function renderMarkers(){
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  events.filter(passesFilter).forEach(ev => {
+    const marker = L.marker([ev.lat, ev.lng], { icon: customIcon(ev.style) }).addTo(map);
+    marker.on('click', () => openDetail(ev.id));
+    markers.push(marker);
+  });
+}
+
+function setFilter(f, el){
+  currentFilter = f;
+  document.querySelectorAll('.filter-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active');
+  renderMarkers();
+}
+
+function locateMe(){
+  if(!navigator.geolocation){ showToast('📍','Géolocalisation non disponible'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    map.setView([pos.coords.latitude, pos.coords.longitude], 12);
+    showToast('📍','Position trouvée !');
+  }, () => showToast('⚠️','Impossible de te localiser'));
+}
+
+// ════════════════════════════════════════════════
+// DETAIL SHEET
+// ════════════════════════════════════════════════
+function openDetail(id){
+  const ev = events.find(e => e.id === id);
+  if(!ev) return;
+  activeEventId = id;
+  document.getElementById('d-style').textContent = ev.style;
+  document.getElementById('d-title').textContent = ev.title;
+  document.getElementById('d-loc').textContent = ev.loc;
+  document.getElementById('d-date').textContent = formatDate(ev.date);
+  document.getElementById('d-dj').textContent = ev.dj || '—';
+  document.getElementById('d-price').textContent = ev.price || 'Non précisé';
+  document.getElementById('d-desc').textContent = ev.desc || '';
+  document.getElementById('d-going-count').textContent = ev.going;
+  const btn = document.getElementById('d-going-btn');
+  const isGoing = goingIds.includes(id);
+  btn.textContent = isGoing ? "✅ Tu y vas !" : "🙋 J'y vais";
+  btn.classList.toggle('going', isGoing);
+  openSheet('detail');
+}
+
+function toggleGoing(){
+  const ev = events.find(e => e.id === activeEventId);
+  if(!ev) return;
+  const idx = goingIds.indexOf(activeEventId);
+  if(idx === -1){ goingIds.push(activeEventId); ev.going++; showToast('🎉','Tu es inscrit !'); }
+  else { goingIds.splice(idx,1); ev.going--; showToast('👋','Inscription annulée'); }
+  saveGoing(); saveEvents();
+  openDetail(activeEventId);
+}
+
+function formatDate(iso){
+  const d = new Date(iso);
+  const opts = { weekday:'long', day:'numeric', month:'long' };
+  return d.toLocaleDateString('fr-FR', opts);
+}
+
+// ════════════════════════════════════════════════
+// ADD EVENT FORM
+// ════════════════════════════════════════════════
+function openAddForm(){
+  document.getElementById('f-date').value = todayISO(0);
+  openSheet('add');
+}
+
+document.getElementById('f-styles').addEventListener('click', (e) => {
+  const chip = e.target.closest('.style-chip-select');
+  if(!chip) return;
+  document.querySelectorAll('.style-chip-select').forEach(c=>c.classList.remove('selected'));
+  chip.classList.add('selected');
+  selectedStyle = chip.dataset.s;
+});
+
+function submitEvent(){
+  const title = document.getElementById('f-title').value.trim();
+  const loc = document.getElementById('f-loc').value.trim();
+  const date = document.getElementById('f-date').value;
+  const dj = document.getElementById('f-dj').value.trim();
+  const price = document.getElementById('f-price').value.trim();
+  const desc = document.getElementById('f-desc').value.trim();
+
+  if(!title || !loc || !date || !selectedStyle){
+    showToast('⚠️','Remplis au moins le titre, le lieu, la date et le style');
+    return;
+  }
+
+  // Géocodage simplifié : place le point au centre de la France avec un léger décalage aléatoire
+  // (en V2 : vraie géolocalisation via Nominatim ou saisie manuelle sur carte)
+  const lat = 46.6 + (Math.random()-0.5)*4;
+  const lng = 2.5 + (Math.random()-0.5)*6;
+
+  const newEvent = {
+    id: Date.now(), title, loc, lat, lng, date, dj, price,
+    style: selectedStyle, desc, going: 1
+  };
+  events.push(newEvent);
+  goingIds.push(newEvent.id);
+  saveEvents(); saveGoing();
+  renderMarkers();
+  closeSheet('add');
+  showToast('🚀','Soirée publiée sur la carte !');
+
+  // Reset form
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-loc').value = '';
+  document.getElementById('f-dj').value = '';
+  document.getElementById('f-price').value = '';
+  document.getElementById('f-desc').value = '';
+  document.querySelectorAll('.style-chip-select').forEach(c=>c.classList.remove('selected'));
+  selectedStyle = null;
+}
+
+// ════════════════════════════════════════════════
+// LIST VIEW (simple toast redirect for V1)
+// ════════════════════════════════════════════════
+function openListView(){
+  const upcoming = events.filter(passesFilter).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(upcoming.length === 0){ showToast('📭','Aucune soirée pour ce filtre'); return; }
+  openDetail(upcoming[0].id);
+  showToast('📋', `${upcoming.length} soirée(s) trouvée(s) — swipe la carte pour voir les autres`);
+}
+
+// ════════════════════════════════════════════════
+// SHEETS
+// ════════════════════════════════════════════════
+function openSheet(name){
+  document.getElementById(name+'-overlay').classList.add('open');
+  document.getElementById(name+'-sheet').classList.add('open');
+}
+function closeSheet(name){
+  document.getElementById(name+'-overlay').classList.remove('open');
+  document.getElementById(name+'-sheet').classList.remove('open');
+}
+
+// ════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════
+let toastTm;
+function showToast(icon, msg){
+  document.getElementById('toast-icon').textContent = icon;
+  document.getElementById('toast-msg').textContent = msg;
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  clearTimeout(toastTm);
+  toastTm = setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+// ════════════════════════════════════════════════
+// SPLASH → APP
+// ════════════════════════════════════════════════
+function enterApp(){
+  document.getElementById('splash').style.display = 'none';
+  setTimeout(() => { map.invalidateSize(); }, 100);
+}
+
+// INIT
+window.addEventListener('load', initMap);
+
+// Service Worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
