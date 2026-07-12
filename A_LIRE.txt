@@ -1,0 +1,40 @@
+KIZRADAR — Mise à jour communautaire + Partage/Itinéraire
+==========================================================
+
+FICHIERS DE CE ZIP
+- index.html          -> racine du repo (remplace l'existant)
+- sw.js               -> racine du repo (remplace l'existant)
+- manifest.json       -> racine (inchangé, inclus au cas où)
+- api/events.js       -> NOUVEAU fichier, dans un dossier "api/"
+
+⚠️ Les icônes (icon-72.png ... icon-512.png) ne sont PAS dans le zip :
+elles sont déjà dans ton repo, n'y touche pas.
+
+⚠️ RAPPEL (ton expérience passée) : sur GitHub mobile, l'upload d'un zip
+ne remplace PAS toujours les fichiers existants de façon fiable.
+Le plus sûr :
+  1) Ouvre index.html dans l'éditeur web GitHub -> colle tout le contenu.
+  2) Pareil pour sw.js.
+  3) Crée le dossier api/ + le fichier api/events.js -> colle le contenu.
+Le zip te sert surtout de sauvegarde et pour api/events.js.
+
+ÉTAPE OBLIGATOIRE — BRANCHER LA BASE (Upstash Redis)
+Dans Vercel > projet kiz-radar > Storage (ou Marketplace) :
+  - Ajoute "Upstash Redis" et connecte-le au projet.
+  - Ça injecte KV_REST_API_URL et KV_REST_API_TOKEN automatiquement.
+  - (Le code lit aussi UPSTASH_REDIS_REST_URL / _TOKEN en secours.)
+Sans ça, l'API répond "Base de données non configurée".
+
+Après commit, Vercel redéploie tout seul.
+Au 1er chargement, l'API sème 5 soirées de démo (partagées).
+Supprime-les quand les vraies arrivent.
+
+CE QUI A CHANGÉ
+- Géocodage réel (Nominatim) : l'adresse tombe au bon endroit.
+- Événements + compteurs "J'y vais" PARTAGÉS entre tous (Upstash).
+- Compteur "J'y vais" ATOMIQUE (HINCRBY) : plus de +1 perdu.
+- Réseau blindé : timeout, JSON invalide, réponse vide, hors-ligne.
+- Onglet Liste fonctionnel (tri par date).
+- Boutons Partager (natif + copie) et Itinéraire (ouvre Maps).
+- SW renommé kizradar-v1, /api jamais mis en cache.
+- Entrées communautaires échappées (anti-injection).

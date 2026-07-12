@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kizquizz-v1';
+const CACHE_NAME = 'kizradar-v1';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -18,6 +18,14 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+
+  // Ne jamais mettre en cache : requêtes non-GET, API (données live),
+  // et ressources externes (tuiles carte, Nominatim, polices).
+  if (e.request.method !== 'GET') return;
+  if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
+
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;
