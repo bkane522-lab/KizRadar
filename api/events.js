@@ -203,6 +203,22 @@ module.exports = async (req, res) => {
         return;
       }
 
+      // Supprimer une soirée (admin) — protégé par clé
+      if (action === 'delete') {
+        if (body.key !== ADMIN_KEY) {
+          res.status(403).json({ error: 'Clé admin invalide' });
+          return;
+        }
+        const id = String(body.id || '');
+        if (!id) { res.status(400).json({ error: 'Identifiant manquant' }); return; }
+        await pipeline([
+          ['HDEL', EVENTS_KEY, id],
+          ['HDEL', GOING_KEY, id]
+        ]);
+        res.status(200).json({ deleted: id });
+        return;
+      }
+
       res.status(400).json({ error: 'Action inconnue' });
       return;
     }
