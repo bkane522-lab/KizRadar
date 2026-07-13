@@ -11,6 +11,7 @@ const EVENTS_KEY = 'kizradar:events'; // hash : id -> métadonnées JSON (sans l
 const GOING_KEY  = 'kizradar:going';  // hash : id -> compteur entier (source de vérité)
 const ALLOWED_STYLES = ['Kizomba', 'Urban Kiz', 'Semba', 'Tarraxo', 'SBK'];
 const REDIS_TIMEOUT = 8000;
+const ADMIN_KEY = 'kizradar-clean-2026'; // clé simple pour le nettoyage admin (non exposée côté client)
 
 // ── Appel Redis brut avec timeout ──
 async function redisRaw(body, endpoint = '') {
@@ -117,6 +118,25 @@ module.exports = async (req, res) => {
   }
 
   try {
+    // ── NETTOYAGE ADMIN : ?clean=CLE&ids=1,2,3,4,5 ──
+    if (req.method === 'GET' && req.query && req.query.clean) {
+      if (req.query.clean !== ADMIN_KEY) {
+        res.status(403).json({ error: 'Clé admin invalide' });
+        return;
+      }
+      const ids = String(req.query.ids || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (ids.length === 0) {
+        res.status(400).json({ error: 'Aucun id fourni (ex: ?clean=...&ids=1,2,3)' });
+        return;
+      }
+      await pipeline([
+        ['HDEL', EVENTS_KEY, ...ids],
+        ['HDEL', GOING_KEY, ...ids]
+      ]);
+      res.status(200).json({ deleted: ids });
+      return;
+    }
+
     // ── LISTE ──
     if (req.method === 'GET') {
       let list = await listEvents();
