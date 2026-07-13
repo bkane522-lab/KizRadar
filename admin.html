@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>KizRadar — Admin</title>
+<style>
+:root{
+  --bg:#0d0820; --card:#1e1040; --gold:#ffd166; --gold2:#f4a329;
+  --purple:#7c3aed; --accent:#c084fc; --white:#f5eeff; --gray:#8b7aaa;
+  --red:#ff4d6d; --border:rgba(255,209,102,0.15);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg); color:var(--white); min-height:100vh;
+  font-family:-apple-system,'Segoe UI',Roboto,sans-serif; padding:1.2rem;
+  padding-bottom:3rem;
+}
+h1{ font-size:1.3rem; margin-bottom:.3rem; color:var(--gold); }
+.sub{ font-size:.8rem; color:var(--gray); margin-bottom:1.2rem; }
+.key-box{
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  padding:1rem; margin-bottom:1.2rem;
+}
+.key-box input{
+  width:100%; padding:.8rem; border-radius:10px; border:1px solid var(--border);
+  background:rgba(0,0,0,.3); color:var(--white); font-size:.9rem; margin-bottom:.7rem;
+}
+.key-box button{
+  width:100%; padding:.8rem; border:none; border-radius:10px;
+  background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a0030;
+  font-weight:700; font-size:.9rem;
+}
+#status{ font-size:.8rem; color:var(--gray); margin-bottom:1rem; min-height:1.2rem; }
+.event-card{
+  background:var(--card); border:1px solid var(--border); border-radius:14px;
+  padding:1rem; margin-bottom:.8rem;
+}
+.ev-title{ font-weight:700; color:var(--gold); margin-bottom:.3rem; }
+.ev-meta{ font-size:.78rem; color:var(--gray); line-height:1.5; margin-bottom:.7rem; }
+.ev-meta b{ color:var(--white); }
+.del-btn{
+  padding:.6rem 1rem; border:none; border-radius:10px;
+  background:rgba(255,77,109,.15); color:var(--red); border:1px solid rgba(255,77,109,.4);
+  font-weight:600; font-size:.82rem;
+}
+.del-btn:disabled{ opacity:.5; }
+.empty{ text-align:center; color:var(--gray); padding:2rem; font-size:.9rem; }
+#list{ display:none; }
+</style>
+</head>
+<body>
+  <h1>🛡️ KizRadar — Admin</h1>
+  <p class="sub">Modération des soirées publiées par la communauté</p>
+
+  <div class="key-box" id="keyBox">
+    <input type="password" id="keyInput" placeholder="Clé admin">
+    <button onclick="unlock()">Déverrouiller</button>
+  </div>
+
+  <div id="status"></div>
+  <div id="list"></div>
+
+  <script>
+    let ADMIN_KEY = '';
+
+    function unlock(){
+      ADMIN_KEY = document.getElementById('keyInput').value.trim();
+      if(!ADMIN_KEY){ setStatus('Entre une clé.'); return; }
+      loadEvents();
+    }
+
+    function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+    async function fetchJSON(url, options = {}, timeoutMs = 10000){
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...options, signal: ctrl.signal });
+        const text = await res.text();
+        let data = null;
+        if(text){ try { data = JSON.parse(text); } catch(_) {} }
+        if(!res.ok) throw new Error((data && data.error) ? data.error : `Erreur ${res.status}`);
+        return data;
+      } finally { clearTimeout(timer); }
+    }
+
+    async function loadEvents(){
+      setStatus('Chargement...');
+      try {
+        const j = await fetchJSON('/api/events');
+        const events = (j && Array.isArray(j.events)) ? j.events : [];
+        renderList(events);
+        document.getElementById('keyBox').style.display = 'none';
+        document.getElementById('list').style.display = 'block';
+        setStatus(events.length + ' soirée(s) publiée(s).');
+      } catch(e){
+        setStatus('Erreur : ' + (e.message || 'impossible de charger'));
+      }
+    }
+
+    function renderList(events){
+      const list = document.getElementById('list');
+      if(events.length === 0){
+        list.innerHTML = '<div class="empty">Aucune soirée publiée actuellement.</div>';
+        return;
+      }
+      events.sort((a,b) => new Date(a.date) - new Date(b.date));
+      list.innerHTML = events.map(ev => `
+        <div class="event-card" id="card-${ev.id}">
+          <div class="ev-title">${escapeHtml(ev.title)}</div>
+          <div class="ev-meta">
+            <b>📍 ${escapeHtml(ev.loc)}</b><br>
+            📅 ${escapeHtml(ev.date)} · 🏷️ ${escapeHtml(ev.style)} · 🙋 ${ev.going}<br>
+            ${ev.dj ? '🎧 ' + escapeHtml(ev.dj) + '<br>' : ''}
+            ${ev.desc ? escapeHtml(ev.desc) : ''}
+          </div>
+          <button class="del-btn" onclick="deleteEvent(${ev.id}, this)">🗑️ Supprimer</button>
+        </div>
+      `).join('');
+    }
+
+    async function deleteEvent(id, btn){
+      if(!confirm('Supprimer définitivement cette soirée ?')) return;
+      btn.disabled = true;
+      btn.textContent = 'Suppression...';
+      try {
+        await fetchJSON('/api/events', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ action:'delete', id, key: ADMIN_KEY })
+        });
+        document.getElementById('card-'+id).remove();
+        setStatus('Soirée supprimée.');
+      } catch(e){
+        btn.disabled = false;
+        btn.textContent = '🗑️ Supprimer';
+        setStatus('Erreur : ' + (e.message || 'échec de la suppression'));
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[c]));
+    }
+  </script>
+</body>
+</html>
