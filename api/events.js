@@ -139,8 +139,7 @@ module.exports = async (req, res) => {
 
     // ── LISTE ──
     if (req.method === 'GET') {
-      let list = await listEvents();
-      if (list.length === 0) list = await seedIfEmpty();
+      const list = await listEvents();
       res.status(200).json({ events: list });
       return;
     }
