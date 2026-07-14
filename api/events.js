@@ -1,21 +1,19 @@
-const crypto = require('crypto');
-const { redisConfigured, redis, pipeline } = require('./_lib/redis');
+const { redisConfigured, redis } = require('../_lib/redis');
 const {
-  EVENTS_KEY,
-  GOING_KEY,
-  DEDUPE_KEY,
+  ALLOWED_STATUSES,
   validateEventInput,
-  fingerprintFor,
+  normalizeStoredEvent,
   isExpired,
-  publicEvent,
   getEvent,
+  saveEvent,
+  deleteEvent,
   loadAllEvents,
-  sortEvents,
-} = require('./_lib/events');
+  cleanupExpiredEvents,
+} = require('../_lib/events');
 const {
-  hashedIp,
-  consumeRateLimit,
-} = require('./_lib/security');
+  requireAdmin,
+  assertSameOrigin,
+} = require('../_lib/security');
 
 function readBody(req) {
   if (!req.body) return {};
@@ -29,160 +27,146 @@ function readBody(req) {
   return req.body;
 }
 
-function noStore(res) {
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+function computeStats(events) {
+  return events.reduce(
+    (stats, event) => {
+      if (event._deleted) return stats;
+      stats.total += 1;
+      if (stats[event.status] !== undefined) stats[event.status] += 1;
+      if (isExpired(event)) stats.expired += 1;
+      return stats;
+    },
+    {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+      archived: 0,
+      expired: 0,
+    }
+  );
 }
 
 module.exports = async function handler(req, res) {
-  noStore(res);
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   if (!redisConfigured()) {
-    return res.status(500).json({
-      error: 'Base de données non configurée',
-      code: 'DATABASE_NOT_CONFIGURED',
-    });
+    return res.status(500).json({ error: 'Base de données non configurée' });
   }
 
-  if (req.method === 'OPTIONS') return res.status(204).end();
+  const session = requireAdmin(req, res);
+  if (!session) return;
 
   try {
     if (req.method === 'GET') {
-      const allEvents = await loadAllEvents({ cleanup: true });
-      const visible = sortEvents(
-        allEvents.filter(
-          (event) =>
-            !event._deleted &&
-            event.status === 'approved' &&
-            !isExpired(event)
-        )
-      );
+      const events = await loadAllEvents({ cleanup: true });
+      const visibleEvents = events
+        .filter((event) => !event._deleted)
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+        );
 
       return res.status(200).json({
-        events: visible.map((event) => publicEvent(event, event.going)),
+        events: visibleEvents,
+        stats: computeStats(visibleEvents),
         generatedAt: new Date().toISOString(),
       });
     }
 
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', 'GET, POST, OPTIONS');
+    if (!assertSameOrigin(req)) {
+      return res.status(403).json({ error: 'Origine de la requête refusée' });
+    }
+
+    if (req.method === 'DELETE') {
+      const body = readBody(req);
+      const id = String(body.id || (req.query && req.query.id) || '');
+      if (!id) return res.status(400).json({ error: 'Identifiant manquant' });
+
+      const event = await getEvent(id);
+      if (!event) return res.status(404).json({ error: 'Événement introuvable' });
+
+      await deleteEvent(id, event);
+      return res.status(200).json({ deleted: id });
+    }
+
+    if (req.method !== 'PATCH') {
+      res.setHeader('Allow', 'GET, PATCH, DELETE');
       return res.status(405).json({ error: 'Méthode non autorisée' });
     }
 
     const body = readBody(req);
-    const action = body.action || 'add';
+    const id = String(body.id || '');
+    const action = String(body.action || '');
 
-    if (action === 'going') {
-      const rate = await consumeRateLimit(
-        `kizradar:rate:going:${hashedIp(req)}`,
-        40,
-        3600
-      );
-      if (!rate.allowed) {
-        return res.status(429).json({
-          error: 'Trop de tentatives. Réessaie plus tard.',
-        });
-      }
+    if (!id) return res.status(400).json({ error: 'Identifiant manquant' });
 
-      const id = String(body.id || '');
-      const delta = body.delta === -1 ? -1 : 1;
-      if (!id) return res.status(400).json({ error: 'Identifiant manquant' });
-
-      const event = await getEvent(id);
-      if (!event || event.status !== 'approved' || isExpired(event)) {
-        return res.status(404).json({ error: 'Événement introuvable' });
-      }
-
-      let count = Number(await redis(['HINCRBY', GOING_KEY, id, String(delta)]));
-      if (!Number.isFinite(count)) count = 0;
-      if (count < 0) {
-        await redis(['HSET', GOING_KEY, id, '0']);
-        count = 0;
-      }
-
-      return res.status(200).json({ going: count });
-    }
-
-    if (action !== 'add') {
-      return res.status(400).json({ error: 'Action inconnue' });
-    }
-
-    const eventInput = body.event || {};
-    if (String(eventInput.website || '').trim()) {
-      return res.status(202).json({
-        pending: true,
-        message: 'Événement envoyé. Il sera publié après vérification.',
-      });
-    }
-
-    const rate = await consumeRateLimit(
-      `kizradar:rate:submit:${hashedIp(req)}`,
-      5,
-      3600
-    );
-    res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
-
-    if (!rate.allowed) {
-      return res.status(429).json({
-        error: 'Limite atteinte : 5 propositions maximum par heure.',
-      });
-    }
-
-    const validated = validateEventInput(eventInput);
-    const fingerprint = fingerprintFor(validated);
-    const duplicateId = await redis(['HGET', DEDUPE_KEY, fingerprint]);
-
-    if (duplicateId) {
-      const duplicate = await getEvent(duplicateId);
-      if (duplicate && !['rejected', 'archived'].includes(duplicate.status)) {
-        return res.status(409).json({
-          error: 'Cet événement semble déjà avoir été proposé.',
-        });
-      }
-    }
+    const current = await getEvent(id);
+    if (!current) return res.status(404).json({ error: 'Événement introuvable' });
 
     const now = new Date().toISOString();
-    const id = crypto.randomUUID();
-    const event = {
-      id,
-      ...validated,
-      status: 'pending',
-      source: 'community',
-      fingerprint,
-      createdAt: now,
-      updatedAt: now,
-      approvedAt: '',
-      rejectedAt: '',
-      archivedAt: '',
-      submittedFrom: hashedIp(req),
-    };
+    let updated = { ...current };
 
-    await pipeline([
-      ['HSET', EVENTS_KEY, id, JSON.stringify(event)],
-      ['HSET', GOING_KEY, id, '0'],
-      ['HSET', DEDUPE_KEY, fingerprint, id],
-    ]);
+    if (action === 'approve') {
+      if (isExpired(current)) {
+        return res.status(400).json({
+          error: 'Impossible d’approuver un événement déjà terminé',
+        });
+      }
+      updated.status = 'approved';
+      updated.approvedAt = now;
+      updated.rejectedAt = '';
+      updated.archivedAt = '';
+    } else if (action === 'reject') {
+      updated.status = 'rejected';
+      updated.rejectedAt = now;
+    } else if (action === 'archive') {
+      updated.status = 'archived';
+      updated.archivedAt = now;
+    } else if (action === 'restore') {
+      if (isExpired(current)) {
+        return res.status(400).json({
+          error: 'Modifie d’abord les dates avant de restaurer cet événement',
+        });
+      }
+      updated.status = 'approved';
+      updated.archivedAt = '';
+      updated.approvedAt = updated.approvedAt || now;
+    } else if (action === 'update') {
+      const merged = {
+        ...current,
+        ...(body.event || {}),
+      };
+      const validated = validateEventInput(merged, {
+        allowExpired: body.allowExpired === true,
+      });
+      updated = {
+        ...current,
+        ...validated,
+      };
 
-    return res.status(202).json({
-      pending: true,
-      id,
-      message: 'Événement envoyé. Il sera publié après vérification.',
-    });
+      if (
+        body.event &&
+        body.event.status &&
+        ALLOWED_STATUSES.includes(body.event.status)
+      ) {
+        updated.status = body.event.status;
+      }
+    } else {
+      return res.status(400).json({ error: 'Action administrateur inconnue' });
+    }
+
+    updated.updatedAt = now;
+    updated = normalizeStoredEvent(updated, id);
+    await saveEvent(updated);
+
+    return res.status(200).json({ event: updated });
   } catch (error) {
     const message = error && error.message ? error.message : 'Erreur serveur';
-    const clientErrorPatterns = [
-      'obligatoire',
-      'invalide',
-      'trop court',
-      'déjà terminé',
-      'après',
-      'dépasse',
-      'éloignée',
-    ];
-    const status = clientErrorPatterns.some((part) => message.includes(part))
+    const status = /obligatoire|invalide|terminé|après|dépasse|éloignée/.test(message)
       ? 400
       : 500;
-
     return res.status(status).json({ error: message });
   }
 };
