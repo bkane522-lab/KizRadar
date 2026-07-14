@@ -15,6 +15,8 @@
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://a.basemaps.cartocdn.com">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
   <style>
     :root {
       --bg: #0d0820;
@@ -190,28 +192,85 @@
       background: linear-gradient(135deg, var(--gold-2), var(--gold));
     }
 
-    .marker-shell { background: transparent; border: 0; }
+    .marker-shell,
+    .cluster-shell {
+      background: transparent;
+      border: 0;
+    }
+
     .event-marker {
-      width: 54px;
-      height: 54px;
+      width: 38px;
+      height: 38px;
       display: grid;
       place-items: center;
       border-radius: 50%;
-      border: 2px solid rgba(255, 245, 214, .78);
+      border: 2px solid rgba(255, 248, 226, .84);
       background: linear-gradient(145deg, #ff9d22, #ffd166);
       color: #3b1838;
       box-shadow:
-        0 0 0 8px rgba(255, 186, 67, .12),
-        0 8px 28px rgba(244, 163, 41, .55);
-      font-size: 25px;
-      transform: translate(-4px, -4px);
+        0 0 0 3px rgba(255, 186, 67, .10),
+        0 5px 15px rgba(244, 163, 41, .42);
+      font-size: 18px;
+      line-height: 1;
+      transition: transform .18s ease, box-shadow .18s ease;
     }
+
+    .event-marker:hover {
+      transform: scale(1.08);
+      box-shadow:
+        0 0 0 4px rgba(255, 186, 67, .13),
+        0 7px 19px rgba(244, 163, 41, .52);
+    }
+
     .event-marker.urban { background: linear-gradient(145deg, #7c3aed, #c084fc); color: white; }
     .event-marker.semba { background: linear-gradient(145deg, #ff5f7d, #ffb26b); }
     .event-marker.tarraxo { background: linear-gradient(145deg, #334155, #94a3b8); color: white; }
     .event-marker.bachata { background: linear-gradient(145deg, #f43f5e, #fb7185); color: white; }
     .event-marker.festival { background: linear-gradient(145deg, #f59e0b, #fef08a); }
     .event-marker.workshop { background: linear-gradient(145deg, #06b6d4, #67e8f9); }
+
+    .cluster-bubble {
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: #2b1230;
+      font-size: 14px;
+      font-weight: 950;
+      border: 2px solid rgba(255, 249, 229, .9);
+      background: linear-gradient(145deg, #f4a329, #ffd166);
+      box-shadow:
+        0 0 0 5px rgba(255, 186, 67, .13),
+        0 8px 22px rgba(244, 163, 41, .5);
+    }
+
+    .cluster-bubble.medium {
+      color: white;
+      background: linear-gradient(145deg, #7c3aed, #b04dff);
+      box-shadow:
+        0 0 0 5px rgba(139, 92, 246, .14),
+        0 8px 22px rgba(139, 92, 246, .48);
+    }
+
+    .cluster-bubble.large {
+      color: white;
+      background: linear-gradient(145deg, #d94666, #ff8a65);
+      box-shadow:
+        0 0 0 5px rgba(255, 95, 125, .14),
+        0 8px 22px rgba(255, 95, 125, .48);
+    }
+
+    .marker-cluster-small,
+    .marker-cluster-medium,
+    .marker-cluster-large {
+      background: transparent !important;
+    }
+
+    .leaflet-cluster-anim .leaflet-marker-icon,
+    .leaflet-cluster-anim .leaflet-marker-shadow {
+      transition: transform .22s ease-out, opacity .22s ease-in;
+    }
     .user-marker {
       width: 18px; height: 18px; border-radius: 50%;
       background: #60a5fa; border: 3px solid white;
@@ -624,6 +683,7 @@
   <div id="toast" role="status"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script>
     const I18N = {
       fr: {
@@ -686,6 +746,7 @@
       events: [],
       filter: 'all',
       markers: [],
+      markerLayer: null,
       selected: null,
       map: null,
       userMarker: null,
@@ -765,6 +826,31 @@
         maxZoom: 20,
         attribution: '&copy; OpenStreetMap &copy; CARTO'
       }).addTo(state.map);
+
+      state.markerLayer = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        spiderfyOnMaxZoom: true,
+        removeOutsideVisibleBounds: true,
+        animate: true,
+        animateAddingMarkers: false,
+        maxClusterRadius: 46,
+        disableClusteringAtZoom: 12,
+        spiderfyDistanceMultiplier: 1.25,
+        iconCreateFunction(cluster) {
+          const count = cluster.getChildCount();
+          const sizeClass = count >= 10 ? 'large' : count >= 5 ? 'medium' : 'small';
+
+          return L.divIcon({
+            className: 'cluster-shell',
+            html: `<div class="cluster-bubble ${sizeClass}"><span>${count}</span></div>`,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22]
+          });
+        }
+      });
+
+      state.map.addLayer(state.markerLayer);
     }
 
     function markerIcon(event) {
@@ -772,8 +858,8 @@
       return L.divIcon({
         className: 'marker-shell',
         html: `<div class="event-marker ${className}">${emoji}</div>`,
-        iconSize: [54, 54],
-        iconAnchor: [27, 27]
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
       });
     }
 
@@ -830,19 +916,33 @@
     }
 
     function renderMarkers() {
-      if (!state.map) return;
-      state.markers.forEach((marker) => marker.remove());
+      if (!state.map || !state.markerLayer) return;
+
+      state.markerLayer.clearLayers();
       state.markers = [];
 
       const bounds = [];
+      const newMarkers = [];
+
       filteredEvents().forEach((event) => {
-        if (!Number.isFinite(Number(event.lat)) || !Number.isFinite(Number(event.lng))) return;
-        const marker = L.marker([event.lat, event.lng], { icon: markerIcon(event) })
-          .addTo(state.map)
-          .on('click', () => showEvent(event.id));
+        const lat = Number(event.lat);
+        const lng = Number(event.lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+        const marker = L.marker([lat, lng], {
+          icon: markerIcon(event),
+          riseOnHover: true,
+          title: event.title || 'KizRadar'
+        }).on('click', () => showEvent(event.id));
+
         state.markers.push(marker);
-        bounds.push([event.lat, event.lng]);
+        newMarkers.push(marker);
+        bounds.push([lat, lng]);
       });
+
+      if (newMarkers.length) {
+        state.markerLayer.addLayers(newMarkers);
+      }
 
       if (bounds.length && state.filter !== 'all') {
         state.map.fitBounds(bounds, { padding: [60, 80], maxZoom: 9 });
