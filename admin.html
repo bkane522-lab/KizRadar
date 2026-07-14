@@ -1,150 +1,509 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="robots" content="noindex, nofollow">
-<title>KizRadar — Admin</title>
-<style>
-:root{
-  --bg:#0d0820; --card:#1e1040; --gold:#ffd166; --gold2:#f4a329;
-  --purple:#7c3aed; --accent:#c084fc; --white:#f5eeff; --gray:#8b7aaa;
-  --red:#ff4d6d; --border:rgba(255,209,102,0.15);
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{
-  background:var(--bg); color:var(--white); min-height:100vh;
-  font-family:-apple-system,'Segoe UI',Roboto,sans-serif; padding:1.2rem;
-  padding-bottom:3rem;
-}
-h1{ font-size:1.3rem; margin-bottom:.3rem; color:var(--gold); }
-.sub{ font-size:.8rem; color:var(--gray); margin-bottom:1.2rem; }
-.key-box{
-  background:var(--card); border:1px solid var(--border); border-radius:14px;
-  padding:1rem; margin-bottom:1.2rem;
-}
-.key-box input{
-  width:100%; padding:.8rem; border-radius:10px; border:1px solid var(--border);
-  background:rgba(0,0,0,.3); color:var(--white); font-size:.9rem; margin-bottom:.7rem;
-}
-.key-box button{
-  width:100%; padding:.8rem; border:none; border-radius:10px;
-  background:linear-gradient(135deg,var(--gold2),var(--gold)); color:#1a0030;
-  font-weight:700; font-size:.9rem;
-}
-#status{ font-size:.8rem; color:var(--gray); margin-bottom:1rem; min-height:1.2rem; }
-.event-card{
-  background:var(--card); border:1px solid var(--border); border-radius:14px;
-  padding:1rem; margin-bottom:.8rem;
-}
-.ev-title{ font-weight:700; color:var(--gold); margin-bottom:.3rem; }
-.ev-meta{ font-size:.78rem; color:var(--gray); line-height:1.5; margin-bottom:.7rem; }
-.ev-meta b{ color:var(--white); }
-.del-btn{
-  padding:.6rem 1rem; border:none; border-radius:10px;
-  background:rgba(255,77,109,.15); color:var(--red); border:1px solid rgba(255,77,109,.4);
-  font-weight:600; font-size:.82rem;
-}
-.del-btn:disabled{ opacity:.5; }
-.empty{ text-align:center; color:var(--gray); padding:2rem; font-size:.9rem; }
-#list{ display:none; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#0d0820">
+  <title>KizRadar — Administration</title>
+  <link rel="icon" href="/icon-192.png">
+  <style>
+    :root {
+      --bg:#0d0820; --panel:#160d31; --panel2:#211044;
+      --gold:#ffd166; --gold2:#f4a329; --purple:#8b5cf6;
+      --white:#f8f3ff; --muted:#a99abb; --red:#ff5f7d;
+      --green:#4ade80; --blue:#60a5fa; --line:rgba(255,209,102,.15);
+      --safe-top:env(safe-area-inset-top,0px); --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;background:var(--bg);color:var(--white)}
+    body{font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+    button,input,select,textarea{font:inherit}
+    button{cursor:pointer}
+    .hidden{display:none!important}
+    .logo{font-family:Georgia,serif;font-weight:900;letter-spacing:-1.5px}
+    .logo .kiz{color:var(--gold)}
+    .logo .radar{font-family:Inter,sans-serif;color:#bd79ff}
+
+    #loginView{min-height:100vh;display:grid;place-items:center;padding:24px}
+    .login-card{
+      width:min(100%,430px);padding:28px;border-radius:28px;
+      background:radial-gradient(circle at 100% 0,rgba(139,92,246,.2),transparent 35%),var(--panel);
+      border:1px solid var(--line);box-shadow:0 28px 80px rgba(0,0,0,.42)
+    }
+    .login-card .logo{font-size:38px;margin-bottom:10px}
+    .login-card h1{font-size:23px;margin:24px 0 7px}
+    .login-card p{color:var(--muted);line-height:1.55}
+    .field{margin-top:16px}
+    .field label{display:block;font-size:13px;font-weight:800;margin:0 0 7px 3px;color:#ded3e9}
+    .field input,.field select,.field textarea{
+      width:100%;padding:14px;border-radius:15px;border:1px solid rgba(255,255,255,.09);
+      color:white;background:rgba(0,0,0,.22);outline:none
+    }
+    .field textarea{min-height:112px;resize:vertical}
+    .field input:focus,.field select:focus,.field textarea:focus{
+      border-color:rgba(255,209,102,.62);box-shadow:0 0 0 4px rgba(255,209,102,.08)
+    }
+    .primary{
+      width:100%;min-height:52px;margin-top:18px;border:0;border-radius:16px;
+      color:#26102e;font-weight:900;background:linear-gradient(135deg,var(--gold2),var(--gold))
+    }
+    .error-box{color:#ffadc0;font-size:13px;min-height:20px;margin-top:12px}
+
+    #dashboard{min-height:100vh;padding-bottom:calc(40px + var(--safe-bottom))}
+    .header{
+      position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:calc(14px + var(--safe-top)) 18px 14px;background:rgba(13,8,32,.94);
+      backdrop-filter:blur(18px);border-bottom:1px solid rgba(255,255,255,.06)
+    }
+    .header .logo{font-size:28px}
+    .header-actions{display:flex;gap:8px}
+    .icon-btn{
+      min-width:42px;height:42px;border-radius:13px;border:1px solid rgba(255,255,255,.08);
+      color:white;background:rgba(255,255,255,.05);font-weight:800
+    }
+    .container{width:min(1120px,100%);margin:0 auto;padding:20px 16px}
+    .intro h1{margin:0 0 6px;font-size:26px}
+    .intro p{margin:0;color:var(--muted)}
+    .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:20px 0}
+    .stat{
+      min-height:98px;padding:15px;border-radius:19px;background:var(--panel);
+      border:1px solid rgba(255,255,255,.06)
+    }
+    .stat b{display:block;font-size:28px;margin-top:6px;color:var(--gold)}
+    .stat small{color:var(--muted)}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+    .search{flex:1;min-width:180px;padding:13px 15px;border-radius:15px;border:1px solid rgba(255,255,255,.08);background:var(--panel);color:white}
+    .tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{
+      white-space:nowrap;padding:11px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.08);
+      color:var(--muted);background:var(--panel);font-weight:850
+    }
+    .tab.active{color:#28102f;border-color:var(--gold);background:var(--gold)}
+    .event-grid{display:grid;gap:12px}
+    .event-card{
+      padding:16px;border-radius:20px;border:1px solid rgba(255,255,255,.07);
+      background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025))
+    }
+    .card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+    .card-head h3{margin:8px 0 4px;font-size:18px}
+    .card-head p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .badge{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:10px;font-weight:950;text-transform:uppercase;letter-spacing:.04em}
+    .badge.pending{color:#342009;background:#ffd166}
+    .badge.approved{color:#062712;background:#4ade80}
+    .badge.rejected{color:white;background:#d94666}
+    .badge.archived{color:white;background:#64748b}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:13px 0}
+    .meta div{padding:10px;border-radius:13px;background:rgba(0,0,0,.17);font-size:12px;color:#d9cee6}
+    .meta small{display:block;color:var(--muted);margin-bottom:3px}
+    .description{white-space:pre-wrap;color:#d8cee4;line-height:1.55;font-size:13px;margin:10px 0}
+    .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:13px}
+    .action{
+      min-height:39px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.09);
+      color:white;background:rgba(255,255,255,.055);font-weight:800;font-size:12px
+    }
+    .action.approve{color:#082512;background:var(--green);border:0}
+    .action.reject,.action.delete{color:#ffd9e2;border-color:rgba(255,95,125,.36);background:rgba(255,95,125,.12)}
+    .empty{text-align:center;color:var(--muted);padding:50px 20px}
+    .config-warning{padding:14px;border-radius:16px;color:#ffdf9e;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.28);margin-top:15px}
+
+    .backdrop{position:fixed;inset:0;z-index:80;background:rgba(4,2,12,.68);backdrop-filter:blur(6px)}
+    .modal{
+      position:fixed;z-index:90;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:min(calc(100% - 24px),620px);max-height:90vh;overflow-y:auto;padding:20px;
+      border-radius:25px;background:var(--panel);border:1px solid var(--line);box-shadow:0 28px 90px rgba(0,0,0,.55)
+    }
+    .modal-head{display:flex;justify-content:space-between;align-items:center}
+    .modal-head h2{margin:0;font-size:21px}
+    .close{width:40px;height:40px;border:0;border-radius:50%;color:white;background:rgba(255,255,255,.08)}
+    .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    #toast{
+      position:fixed;z-index:120;left:50%;bottom:24px;transform:translate(-50%,30px);
+      width:min(calc(100% - 30px),440px);padding:14px 16px;border-radius:15px;text-align:center;
+      background:#28154d;border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.46);
+      opacity:0;pointer-events:none;transition:.2s
+    }
+    #toast.show{opacity:1;transform:translate(-50%,0)}
+    @media(min-width:760px){
+      .stats{grid-template-columns:repeat(5,1fr)}
+      .event-grid{grid-template-columns:repeat(2,1fr)}
+    }
+  </style>
 </head>
 <body>
-  <h1>🛡️ KizRadar — Admin</h1>
-  <p class="sub">Modération des soirées publiées par la communauté</p>
+  <section id="loginView">
+    <form class="login-card" id="loginForm">
+      <div class="logo"><span class="kiz">Kiz</span><span class="radar">Radar</span></div>
+      <h1>Administration sécurisée</h1>
+      <p>Connectez-vous pour vérifier, corriger, approuver ou retirer les événements.</p>
+      <div class="field">
+        <label for="password">Mot de passe administrateur</label>
+        <input type="password" id="password" required autocomplete="current-password">
+      </div>
+      <button class="primary" id="loginButton">Se connecter</button>
+      <div class="error-box" id="loginError"></div>
+      <div class="config-warning hidden" id="configWarning">
+        Ajoutez d’abord <b>ADMIN_PASSWORD</b> et <b>ADMIN_SESSION_SECRET</b> dans Vercel.
+      </div>
+    </form>
+  </section>
 
-  <div class="key-box" id="keyBox">
-    <input type="password" id="keyInput" placeholder="Clé admin">
-    <button onclick="unlock()">Déverrouiller</button>
-  </div>
+  <main id="dashboard" class="hidden">
+    <header class="header">
+      <div class="logo"><span class="kiz">Kiz</span><span class="radar">Radar</span> <small style="font-family:Inter;font-size:11px;color:#a99abb;letter-spacing:0">ADMIN</small></div>
+      <div class="header-actions">
+        <button class="icon-btn" id="refreshButton" title="Actualiser">↻</button>
+        <button class="icon-btn" id="logoutButton" title="Déconnexion">⏻</button>
+      </div>
+    </header>
 
-  <div id="status"></div>
-  <div id="list"></div>
+    <div class="container">
+      <div class="intro">
+        <h1>Modération des événements</h1>
+        <p>Les propositions publiques restent invisibles tant qu’elles ne sont pas approuvées.</p>
+      </div>
+
+      <section class="stats">
+        <div class="stat"><small>En attente</small><b id="statPending">0</b></div>
+        <div class="stat"><small>Publiés</small><b id="statApproved">0</b></div>
+        <div class="stat"><small>Refusés</small><b id="statRejected">0</b></div>
+        <div class="stat"><small>Archivés</small><b id="statArchived">0</b></div>
+        <div class="stat"><small>Total</small><b id="statTotal">0</b></div>
+      </section>
+
+      <div class="toolbar">
+        <input class="search" id="searchInput" placeholder="Rechercher un nom, une ville, un organisateur…">
+      </div>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab active" data-status="pending">À vérifier</button>
+        <button class="tab" data-status="approved">Publiés</button>
+        <button class="tab" data-status="rejected">Refusés</button>
+        <button class="tab" data-status="archived">Archivés</button>
+        <button class="tab" data-status="all">Tous</button>
+      </nav>
+
+      <section class="event-grid" id="eventGrid"></section>
+    </div>
+  </main>
+
+  <div class="backdrop hidden" id="backdrop"></div>
+  <section class="modal hidden" id="editModal">
+    <div class="modal-head">
+      <h2>Modifier l’événement</h2>
+      <button class="close" id="closeModal">✕</button>
+    </div>
+    <form id="editForm">
+      <input type="hidden" id="editId">
+      <div class="field"><label>Nom</label><input id="editTitle" maxlength="100" required></div>
+      <div class="two">
+        <div class="field"><label>Style</label>
+          <select id="editStyle">
+            <option>Kizomba</option><option>Urban Kiz</option><option>Semba</option>
+            <option>Tarraxo</option><option>SBK</option><option>Bachata</option>
+            <option>Festival</option><option>Workshop</option>
+          </select>
+        </div>
+        <div class="field"><label>Ville</label><input id="editCity" maxlength="100"></div>
+      </div>
+      <div class="field"><label>Adresse</label><input id="editLocation" maxlength="180" required></div>
+      <div class="two">
+        <div class="field"><label>Latitude</label><input type="number" step="any" id="editLat" required></div>
+        <div class="field"><label>Longitude</label><input type="number" step="any" id="editLng" required></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>Début</label><input type="datetime-local" id="editStartAt" required></div>
+        <div class="field"><label>Fin</label><input type="datetime-local" id="editEndAt" required></div>
+      </div>
+      <div class="two">
+        <div class="field"><label>DJ</label><input id="editDj" maxlength="80"></div>
+        <div class="field"><label>Prix</label><input id="editPrice" maxlength="50"></div>
+      </div>
+      <div class="field"><label>Organisateur</label><input id="editOrganizer" maxlength="100"></div>
+      <div class="field"><label>Lien officiel</label><input type="url" id="editLink"></div>
+      <div class="field"><label>E-mail du proposant</label><input type="email" id="editEmail"></div>
+      <div class="field"><label>Description</label><textarea id="editDescription" maxlength="1200"></textarea></div>
+      <button class="primary">Enregistrer les modifications</button>
+    </form>
+  </section>
+
+  <div id="toast"></div>
 
   <script>
-    let ADMIN_KEY = '';
+    const state = { events: [], stats: {}, status: 'pending', search: '', toastTimer: null };
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => [...document.querySelectorAll(selector)];
 
-    function unlock(){
-      ADMIN_KEY = document.getElementById('keyInput').value.trim();
-      if(!ADMIN_KEY){ setStatus('Entre une clé.'); return; }
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+        .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+    }
+
+    function dateText(value) {
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '—';
+      return new Intl.DateTimeFormat('fr-FR', {
+        weekday:'short', day:'2-digit', month:'short', year:'numeric',
+        hour:'2-digit', minute:'2-digit'
+      }).format(date);
+    }
+
+    function localInputValue(value) {
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return '';
+      return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    }
+
+    async function api(url, options = {}) {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'same-origin',
+        ...options,
+        headers: {
+          ...(options.body ? {'Content-Type':'application/json'} : {}),
+          ...(options.headers || {})
+        }
+      });
+      const text = await response.text();
+      let data = {};
+      try { data = text ? JSON.parse(text) : {}; } catch {}
+      if (!response.ok) {
+        const error = new Error(data.error || `Erreur ${response.status}`);
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    }
+
+    function toast(message) {
+      $('#toast').textContent = message;
+      $('#toast').classList.add('show');
+      clearTimeout(state.toastTimer);
+      state.toastTimer = setTimeout(() => $('#toast').classList.remove('show'), 3000);
+    }
+
+    async function checkSession() {
+      try {
+        const data = await api('/api/admin/session');
+        $('#configWarning').classList.toggle('hidden', data.configured !== false);
+        if (data.authenticated) showDashboard();
+      } catch {}
+    }
+
+    async function login(event) {
+      event.preventDefault();
+      $('#loginError').textContent = '';
+      const button = $('#loginButton');
+      button.disabled = true;
+      button.textContent = 'Connexion…';
+      try {
+        await api('/api/admin/login', {
+          method: 'POST',
+          body: JSON.stringify({ password: $('#password').value })
+        });
+        $('#password').value = '';
+        showDashboard();
+      } catch (error) {
+        $('#loginError').textContent = error.message;
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Se connecter';
+      }
+    }
+
+    function showDashboard() {
+      $('#loginView').classList.add('hidden');
+      $('#dashboard').classList.remove('hidden');
       loadEvents();
     }
 
-    function setStatus(msg){ document.getElementById('status').textContent = msg; }
-
-    async function fetchJSON(url, options = {}, timeoutMs = 10000){
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-      try {
-        const res = await fetch(url, { ...options, signal: ctrl.signal });
-        const text = await res.text();
-        let data = null;
-        if(text){ try { data = JSON.parse(text); } catch(_) {} }
-        if(!res.ok) throw new Error((data && data.error) ? data.error : `Erreur ${res.status}`);
-        return data;
-      } finally { clearTimeout(timer); }
+    async function logout() {
+      try { await api('/api/admin/logout', { method:'POST', body:'{}' }); } catch {}
+      location.reload();
     }
 
-    async function loadEvents(){
-      setStatus('Chargement...');
+    async function loadEvents() {
+      $('#eventGrid').innerHTML = '<div class="empty">Chargement…</div>';
       try {
-        const j = await fetchJSON('/api/events');
-        const events = (j && Array.isArray(j.events)) ? j.events : [];
-        renderList(events);
-        document.getElementById('keyBox').style.display = 'none';
-        document.getElementById('list').style.display = 'block';
-        setStatus(events.length + ' soirée(s) publiée(s).');
-      } catch(e){
-        setStatus('Erreur : ' + (e.message || 'impossible de charger'));
+        const data = await api('/api/admin/events');
+        state.events = Array.isArray(data.events) ? data.events : [];
+        state.stats = data.stats || {};
+        renderStats();
+        renderEvents();
+      } catch (error) {
+        if (error.status === 401) return location.reload();
+        $('#eventGrid').innerHTML = `<div class="empty">${escapeHtml(error.message)}</div>`;
       }
     }
 
-    function renderList(events){
-      const list = document.getElementById('list');
-      if(events.length === 0){
-        list.innerHTML = '<div class="empty">Aucune soirée publiée actuellement.</div>';
+    function renderStats() {
+      $('#statPending').textContent = state.stats.pending || 0;
+      $('#statApproved').textContent = state.stats.approved || 0;
+      $('#statRejected').textContent = state.stats.rejected || 0;
+      $('#statArchived').textContent = state.stats.archived || 0;
+      $('#statTotal').textContent = state.stats.total || 0;
+    }
+
+    function filtered() {
+      const query = state.search.toLowerCase().trim();
+      return state.events.filter((event) => {
+        const statusOk = state.status === 'all' || event.status === state.status;
+        const haystack = [event.title,event.city,event.location,event.organizer,event.dj,event.style]
+          .join(' ').toLowerCase();
+        return statusOk && (!query || haystack.includes(query));
+      });
+    }
+
+    function renderEvents() {
+      const events = filtered();
+      if (!events.length) {
+        $('#eventGrid').innerHTML = '<div class="empty">Aucun événement dans cette catégorie.</div>';
         return;
       }
-      events.sort((a,b) => new Date(a.date) - new Date(b.date));
-      list.innerHTML = events.map(ev => `
-        <div class="event-card" id="card-${ev.id}">
-          <div class="ev-title">${escapeHtml(ev.title)}</div>
-          <div class="ev-meta">
-            <b>📍 ${escapeHtml(ev.loc)}</b><br>
-            📅 ${escapeHtml(ev.date)} · 🏷️ ${escapeHtml(ev.style)} · 🙋 ${ev.going}<br>
-            ${ev.dj ? '🎧 ' + escapeHtml(ev.dj) + '<br>' : ''}
-            ${ev.desc ? escapeHtml(ev.desc) : ''}
+
+      $('#eventGrid').innerHTML = events.map((event) => `
+        <article class="event-card">
+          <div class="card-head">
+            <div>
+              <span class="badge ${escapeHtml(event.status)}">${escapeHtml(event.status)}</span>
+              <h3>${escapeHtml(event.title)}</h3>
+              <p>${escapeHtml(event.style)} · ${escapeHtml(event.location || event.city || '—')}</p>
+            </div>
+            <button class="icon-btn" data-action="edit" data-id="${escapeHtml(event.id)}">✎</button>
           </div>
-          <button class="del-btn" onclick="deleteEvent(${ev.id}, this)">🗑️ Supprimer</button>
-        </div>
+          <div class="meta">
+            <div><small>Début</small>${escapeHtml(dateText(event.startAt))}</div>
+            <div><small>Fin</small>${escapeHtml(dateText(event.endAt))}</div>
+            <div><small>Organisateur</small>${escapeHtml(event.organizer || '—')}</div>
+            <div><small>Contact</small>${escapeHtml(event.submitterEmail || '—')}</div>
+            <div><small>DJ</small>${escapeHtml(event.dj || '—')}</div>
+            <div><small>Prix</small>${escapeHtml(event.price || '—')}</div>
+          </div>
+          ${event.description ? `<div class="description">${escapeHtml(event.description)}</div>` : ''}
+          <div class="actions">
+            ${event.status !== 'approved' ? `<button class="action approve" data-action="approve" data-id="${escapeHtml(event.id)}">✓ Approuver</button>` : ''}
+            ${event.status !== 'rejected' ? `<button class="action reject" data-action="reject" data-id="${escapeHtml(event.id)}">Refuser</button>` : ''}
+            ${event.status === 'archived' ? `<button class="action" data-action="restore" data-id="${escapeHtml(event.id)}">Restaurer</button>` : `<button class="action" data-action="archive" data-id="${escapeHtml(event.id)}">Archiver</button>`}
+            <button class="action" data-action="map" data-id="${escapeHtml(event.id)}">📍 Carte</button>
+            ${event.link ? `<button class="action" data-action="link" data-id="${escapeHtml(event.id)}">🔗 Lien</button>` : ''}
+            <button class="action delete" data-action="delete" data-id="${escapeHtml(event.id)}">Supprimer</button>
+          </div>
+        </article>
       `).join('');
+
+      $$('[data-action]').forEach((button) => {
+        button.addEventListener('click', () => handleAction(button.dataset.action, button.dataset.id));
+      });
     }
 
-    async function deleteEvent(id, btn){
-      if(!confirm('Supprimer définitivement cette soirée ?')) return;
-      btn.disabled = true;
-      btn.textContent = 'Suppression...';
-      try {
-        await fetchJSON('/api/events', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json' },
-          body: JSON.stringify({ action:'delete', id, key: ADMIN_KEY })
-        });
-        document.getElementById('card-'+id).remove();
-        setStatus('Soirée supprimée.');
-      } catch(e){
-        btn.disabled = false;
-        btn.textContent = '🗑️ Supprimer';
-        setStatus('Erreur : ' + (e.message || 'échec de la suppression'));
+    async function handleAction(action, id) {
+      const event = state.events.find((item) => String(item.id) === String(id));
+      if (!event) return;
+
+      if (action === 'edit') return openEdit(event);
+      if (action === 'map') return window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.lat + ',' + event.lng)}`, '_blank', 'noopener');
+      if (action === 'link') return window.open(event.link, '_blank', 'noopener');
+
+      if (action === 'delete') {
+        if (!confirm(`Supprimer définitivement « ${event.title} » ?`)) return;
+        try {
+          await api('/api/admin/events', { method:'DELETE', body:JSON.stringify({id}) });
+          toast('Événement supprimé.');
+          await loadEvents();
+        } catch (error) { toast(error.message); }
+        return;
       }
+
+      const labels = {
+        approve:'approuver', reject:'refuser', archive:'archiver', restore:'restaurer'
+      };
+      if (!confirm(`Confirmer : ${labels[action]} « ${event.title} » ?`)) return;
+
+      try {
+        await api('/api/admin/events', {
+          method:'PATCH',
+          body:JSON.stringify({id, action})
+        });
+        toast('Modification enregistrée.');
+        await loadEvents();
+      } catch (error) { toast(error.message); }
     }
 
-    function escapeHtml(s){
-      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-      }[c]));
+    function openEdit(event) {
+      $('#editId').value = event.id;
+      $('#editTitle').value = event.title || '';
+      $('#editStyle').value = event.style || 'Kizomba';
+      $('#editCity').value = event.city || '';
+      $('#editLocation').value = event.location || '';
+      $('#editLat').value = event.lat ?? '';
+      $('#editLng').value = event.lng ?? '';
+      $('#editStartAt').value = localInputValue(event.startAt);
+      $('#editEndAt').value = localInputValue(event.endAt);
+      $('#editDj').value = event.dj || '';
+      $('#editPrice').value = event.price || '';
+      $('#editOrganizer').value = event.organizer || '';
+      $('#editLink').value = event.link || '';
+      $('#editEmail').value = event.submitterEmail || '';
+      $('#editDescription').value = event.description || '';
+      $('#backdrop').classList.remove('hidden');
+      $('#editModal').classList.remove('hidden');
     }
+
+    function closeEdit() {
+      $('#backdrop').classList.add('hidden');
+      $('#editModal').classList.add('hidden');
+    }
+
+    async function saveEdit(event) {
+      event.preventDefault();
+      const id = $('#editId').value;
+      const payload = {
+        title:$('#editTitle').value,
+        style:$('#editStyle').value,
+        city:$('#editCity').value,
+        location:$('#editLocation').value,
+        address:$('#editLocation').value,
+        lat:Number($('#editLat').value),
+        lng:Number($('#editLng').value),
+        startAt:new Date($('#editStartAt').value).toISOString(),
+        endAt:new Date($('#editEndAt').value).toISOString(),
+        dj:$('#editDj').value,
+        price:$('#editPrice').value,
+        organizer:$('#editOrganizer').value,
+        link:$('#editLink').value,
+        submitterEmail:$('#editEmail').value,
+        description:$('#editDescription').value
+      };
+
+      try {
+        await api('/api/admin/events', {
+          method:'PATCH',
+          body:JSON.stringify({id, action:'update', event:payload, allowExpired:true})
+        });
+        closeEdit();
+        toast('Événement corrigé.');
+        await loadEvents();
+      } catch (error) { toast(error.message); }
+    }
+
+    $('#loginForm').addEventListener('submit', login);
+    $('#logoutButton').addEventListener('click', logout);
+    $('#refreshButton').addEventListener('click', loadEvents);
+    $('#searchInput').addEventListener('input', (event) => { state.search = event.target.value; renderEvents(); });
+    $('#tabs').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-status]');
+      if (!button) return;
+      state.status = button.dataset.status;
+      $$('.tab').forEach((item) => item.classList.toggle('active', item === button));
+      renderEvents();
+    });
+    $('#closeModal').addEventListener('click', closeEdit);
+    $('#backdrop').addEventListener('click', closeEdit);
+    $('#editForm').addEventListener('submit', saveEdit);
+    checkSession();
   </script>
 </body>
 </html>

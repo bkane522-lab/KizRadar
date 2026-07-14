@@ -1,40 +1,80 @@
-KIZRADAR — Mise à jour communautaire + Partage/Itinéraire
-==========================================================
+KIZRADAR — MODÉRATION COMPLÈTE
+================================
 
-FICHIERS DE CE ZIP
-- index.html          -> racine du repo (remplace l'existant)
-- sw.js               -> racine du repo (remplace l'existant)
-- manifest.json       -> racine (inchangé, inclus au cas où)
-- api/events.js       -> NOUVEAU fichier, dans un dossier "api/"
+CE ZIP EST UN PROJET COMPLET À DÉPOSER DANS LE DÉPÔT GITHUB KizRadar.
 
-⚠️ Les icônes (icon-72.png ... icon-512.png) ne sont PAS dans le zip :
-elles sont déjà dans ton repo, n'y touche pas.
+FONCTIONS AJOUTÉES
+------------------
+1. Le public peut proposer un événement.
+2. Toute proposition est enregistrée avec le statut "pending".
+3. Une proposition en attente n’apparaît jamais sur la carte publique.
+4. L’administrateur peut approuver, refuser, modifier, archiver ou supprimer.
+5. La page admin utilise une vraie session sécurisée par cookie HttpOnly.
+6. Les événements terminés disparaissent automatiquement de la carte.
+7. Les événements terminés passent en "archived".
+8. Les archives sont supprimées définitivement après 7 jours par défaut.
+9. Limitation : 5 propositions par heure et par adresse réseau.
+10. Détection des doublons.
+11. Champ anti-robot invisible.
+12. Les événements déjà présents dans l’ancienne base restent compatibles.
+    Les anciens événements sans statut sont considérés comme "approved".
 
-⚠️ RAPPEL (ton expérience passée) : sur GitHub mobile, l'upload d'un zip
-ne remplace PAS toujours les fichiers existants de façon fiable.
-Le plus sûr :
-  1) Ouvre index.html dans l'éditeur web GitHub -> colle tout le contenu.
-  2) Pareil pour sw.js.
-  3) Crée le dossier api/ + le fichier api/events.js -> colle le contenu.
-Le zip te sert surtout de sauvegarde et pour api/events.js.
+VARIABLES VERCEL OBLIGATOIRES
+-----------------------------
+Les variables Upstash déjà fonctionnelles :
+- KV_REST_API_URL
+- KV_REST_API_TOKEN
 
-ÉTAPE OBLIGATOIRE — BRANCHER LA BASE (Upstash Redis)
-Dans Vercel > projet kiz-radar > Storage (ou Marketplace) :
-  - Ajoute "Upstash Redis" et connecte-le au projet.
-  - Ça injecte KV_REST_API_URL et KV_REST_API_TOKEN automatiquement.
-  - (Le code lit aussi UPSTASH_REDIS_REST_URL / _TOKEN en secours.)
-Sans ça, l'API répond "Base de données non configurée".
+À AJOUTER :
+- ADMIN_PASSWORD
+  Valeur : votre mot de passe privé, long et unique.
 
-Après commit, Vercel redéploie tout seul.
-Au 1er chargement, l'API sème 5 soirées de démo (partagées).
-Supprime-les quand les vraies arrivent.
+- ADMIN_SESSION_SECRET
+  Valeur : une chaîne aléatoire d’au moins 32 caractères.
+  Exemple de méthode : utilisez un gestionnaire de mots de passe pour générer 64 caractères.
+  Ne publiez jamais cette valeur dans GitHub.
 
-CE QUI A CHANGÉ
-- Géocodage réel (Nominatim) : l'adresse tombe au bon endroit.
-- Événements + compteurs "J'y vais" PARTAGÉS entre tous (Upstash).
-- Compteur "J'y vais" ATOMIQUE (HINCRBY) : plus de +1 perdu.
-- Réseau blindé : timeout, JSON invalide, réponse vide, hors-ligne.
-- Onglet Liste fonctionnel (tri par date).
-- Boutons Partager (natif + copie) et Itinéraire (ouvre Maps).
-- SW renommé kizradar-v1, /api jamais mis en cache.
-- Entrées communautaires échappées (anti-injection).
+VARIABLES OPTIONNELLES
+----------------------
+- ARCHIVE_RETENTION_DAYS
+  Valeur par défaut : 7
+
+- CRON_SECRET
+  Nécessaire uniquement si vous appelez /api/cron/cleanup automatiquement.
+  Le nettoyage fonctionne déjà lors du chargement de la carte et de l’admin.
+
+MISE EN LIGNE
+-------------
+1. Décompressez le ZIP.
+2. Dans GitHub, remplacez les fichiers du dépôt KizRadar par tout le contenu du dossier.
+3. Vérifiez que le dossier api et ses sous-dossiers sont bien présents.
+4. Dans Vercel > KizRadar > Settings > Environment Variables :
+   ajoutez ADMIN_PASSWORD et ADMIN_SESSION_SECRET pour Production et Preview.
+5. Lancez un nouveau déploiement sans réutiliser l’ancien cache.
+6. Ouvrez :
+   - Carte publique : https://kiz-radar.vercel.app
+   - Administration : https://kiz-radar.vercel.app/admin
+
+TEST RAPIDE
+-----------
+1. Proposez un événement depuis le bouton Ajouter.
+2. Vérifiez qu’il n’apparaît pas immédiatement sur la carte.
+3. Ouvrez /admin et connectez-vous.
+4. L’événement doit apparaître dans "À vérifier".
+5. Appuyez sur "Approuver".
+6. Rechargez la carte : l’événement doit apparaître.
+
+SÉCURITÉ
+--------
+- Aucun mot de passe n’est écrit dans admin.html.
+- Aucun token Upstash n’est exposé dans le navigateur.
+- Ne faites jamais de capture affichant les valeurs des variables Vercel.
+- Le dépôt GitHub peut rester public uniquement si aucun secret n’est écrit dans les fichiers.
+
+REMARQUE SUR LES ANCIENS ÉVÉNEMENTS
+-----------------------------------
+Le système utilise toujours les clés Redis existantes :
+- kizradar:events
+- kizradar:going
+
+Vos données existantes ne sont donc pas effacées lors du remplacement des fichiers.
