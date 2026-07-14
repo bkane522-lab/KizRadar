@@ -455,9 +455,11 @@ function customIcon(style){
 
 function passesFilter(ev){
   if(currentFilter === 'all') return true;
-  if(currentFilter === 'today') return ev.date === todayISO(0);
+  const evDate = getDateStr(ev);
+  if(currentFilter === 'today') return evDate === todayISO(0);
   if(currentFilter === 'week') {
-    const d = new Date(ev.date), now = new Date();
+    if(!evDate) return false;
+    const d = new Date(evDate), now = new Date();
     const diff = (d - now)/(1000*60*60*24);
     return diff >= -1 && diff <= 7;
   }
@@ -498,8 +500,8 @@ function openDetail(id){
   activeEventId = id;
   document.getElementById('d-style').textContent = ev.style;
   document.getElementById('d-title').textContent = ev.title;
-  document.getElementById('d-loc').textContent = ev.loc;
-  document.getElementById('d-date').textContent = formatDate(ev.date);
+  document.getElementById('d-loc').textContent = getLoc(ev);
+  document.getElementById('d-date').textContent = formatDate(getDateStr(ev));
   document.getElementById('d-dj').textContent = ev.dj || '—';
   document.getElementById('d-price').textContent = ev.price || 'Non précisé';
   document.getElementById('d-desc').textContent = ev.desc || '';
@@ -537,8 +539,23 @@ async function toggleGoing(){
   }
 }
 
+function getLoc(ev){
+  if(ev.loc) return ev.loc;
+  if(ev.location) return ev.location;
+  const parts = [ev.city, ev.address].filter(Boolean);
+  return parts.length ? parts.join(' — ') : 'Lieu non précisé';
+}
+
+function getDateStr(ev){
+  if(ev.date) return ev.date;
+  if(ev.startAt) return String(ev.startAt).slice(0, 10);
+  return '';
+}
+
 function formatDate(iso){
+  if(!iso) return 'Date non précisée';
   const d = new Date(iso);
+  if(isNaN(d.getTime())) return 'Date non précisée';
   const opts = { weekday:'long', day:'numeric', month:'long' };
   return d.toLocaleDateString('fr-FR', opts);
 }
@@ -547,7 +564,7 @@ function formatDate(iso){
 function shareEvent(){
   const ev = events.find(e => e.id === activeEventId);
   if(!ev) return;
-  const text = `${ev.title} — ${ev.style}\n📍 ${ev.loc}\n📅 ${formatDate(ev.date)}${ev.price ? '\n💶 ' + ev.price : ''}\n\nRepéré sur KizRadar 🎵`;
+  const text = `${ev.title} — ${ev.style}\n📍 ${getLoc(ev)}\n📅 ${formatDate(getDateStr(ev))}${ev.price ? '\n💶 ' + ev.price : ''}\n\nRepéré sur KizRadar 🎵`;
   const url = location.origin;
   if(navigator.share){
     navigator.share({ title: `KizRadar — ${ev.title}`, text, url }).catch(()=>{});
@@ -584,8 +601,8 @@ function openListView(){
           <span class="list-item-style">${STYLE_EMOJI[ev.style] || ''} ${escapeHtml(ev.style)}</span>
         </div>
         <div class="list-item-meta">
-          <span>📍 ${escapeHtml(ev.loc)}</span>
-          <span>📅 ${formatDate(ev.date)}</span>
+          <span>📍 ${escapeHtml(getLoc(ev))}</span>
+          <span>📅 ${formatDate(getDateStr(ev))}</span>
           <span>🙋 ${ev.going}</span>
         </div>
       </div>`).join('');
