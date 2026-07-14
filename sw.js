@@ -1,58 +1,40 @@
-const CACHE_NAME = 'kizradar-shell-v4';
-const SHELL = ['/', '/index.html', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+const CACHE_NAME = 'kizradar-v1';
+const ASSETS = ['/', '/index.html', '/manifest.json'];
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL)).catch(() => {})
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
   );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
 
-  if (
-    event.request.method !== 'GET' ||
-    url.pathname.startsWith('/api/') ||
-    url.pathname.startsWith('/admin')
-  ) {
-    return;
-  }
+  // Ne jamais mettre en cache : requêtes non-GET, API (données live),
+  // et ressources externes (tuiles carte, Nominatim, polices).
+  if (e.request.method !== 'GET') return;
+  if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
 
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html')))
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((response) => {
-          if (response && response.ok && url.origin === location.origin) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
-      return cached || network;
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      if (cached) return cached;
+      return fetch(e.request).then(res => {
+        if (!res || res.status !== 200 || res.type !== 'basic') return res;
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        return res;
+      }).catch(() => caches.match('/index.html'));
     })
   );
 });
